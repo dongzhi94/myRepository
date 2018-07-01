@@ -66,7 +66,7 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
     final float loadFactor;
 
     /**
-     * 记录hashmap结构被修改的次数，结构修改指改变了K/V映射，如新增、删除一个元素，又或是改变了内部结果，如rehash。这个字段被用来当迭代器的fail-fast。什么意思？
+     * 记录hashmap结构被修改的次数，结构修改指改变了K/V映射，如新增、删除一个元素，又或是改变了内部结构，如rehash。这个字段被用来当迭代器的fail-fast。什么意思？
      * fail-fast机制：我们造，hashmap是线程不安全的，因此如果在使用迭代器的过程中有其他线程修改了hashmap，那么将抛出ConcurrentModificationException，这就是所谓fail-fast策略。
      *下次看到HashMap使用中抛出ConcurrentModificationException, 就知道有多线程并发使用了。怎么处理？ConcurrentHashMap。
      */
@@ -77,7 +77,7 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * 如果想启用尝鲜这个特性，你需要设置jdk.map.althashing.threshold这个系统属性的值为一个非负数（默认是-1）这个值代表了一个集合大小的threshold，超过这个值，就会使用新的hash算法。
      * 需要注意的一点，只有当re-hash的时候，新的hash算法才会起作用。
      */
-    static final int ALTERNATIVE_HASHING_THRESHOLD_DEFAULT = Integer.MAX_VALUE;
+    static final int ALTERNATIVE_HASHING_THRESHOLD_DEFAULT = Integer.MAX_VALUE;//2147483647=2^31-1,32位系统中符号型整型常量
 
     /**
      * Holder本身只是加载获取这个配置参数而已
@@ -92,13 +92,13 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
         static {
             String altThreshold = java.security.AccessController.doPrivileged(
                     new sun.security.action.GetPropertyAction(
-                            "jdk.map.althashing.threshold"));
+                            "jdk.map.althashing.threshold"));//null，何时会变？
 
             int threshold;
             try {
                 threshold = (null != altThreshold)
                         ? Integer.parseInt(altThreshold)
-                        : ALTERNATIVE_HASHING_THRESHOLD_DEFAULT;
+                        : ALTERNATIVE_HASHING_THRESHOLD_DEFAULT;//Integer.MAX_VALUE
 
                 // disable alternative hashing if -1
                 if (threshold == -1) {
@@ -112,7 +112,7 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
                 throw new Error("Illegal value for 'jdk.map.althashing.threshold'", failed);
             }
 
-            ALTERNATIVE_HASHING_THRESHOLD = threshold;
+            ALTERNATIVE_HASHING_THRESHOLD = threshold;//Integer.MAX_VALUE
         }
     }
 
@@ -163,7 +163,8 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * 从一个已有的map构造出一个新的hashmap
      */
     public MyHashMap(Map<? extends K, ? extends V> m) {
-        //已有map的长度/加载因子+1，与默认初始化容量，取大的一方作为初始化容量？？？why
+        //已有map的长度/加载因子+1，与默认初始化容量，取大的一方作为初始化容量
+        //+1是为了防止为0的情况
         this(Math.max((int) (m.size() / DEFAULT_LOAD_FACTOR) + 1,
                 DEFAULT_INITIAL_CAPACITY), DEFAULT_LOAD_FACTOR);
         inflateTable(threshold);
@@ -183,12 +184,13 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * Inflates the table.
      */
     private void inflateTable(int toSize) {
-        // Find a power of 2 >= toSize 比入参初始容量大的最小的2的幂数
-        int capacity = roundUpToPowerOf2(toSize);
+        // Find a power of 2 >= toSize 比入参初始容量大的最小的2的幂数，作为数组的容量
+        int capacity = roundUpToPowerOf2(toSize);//最大值为最大容量1<<30
         //之后根据计算好的数组长度，创建Entry数组，并针对Bucket数组容量巨大的采用新的Hash算法。  TODO why?
+        //容量*加载因子=阈值，保证阈值不能超过最大容量
         threshold = (int) Math.min(capacity * loadFactor, MAXIMUM_CAPACITY + 1);
         table = new Entry[capacity];
-        initHashSeedAsNeeded(capacity);
+        initHashSeedAsNeeded(capacity);//返回了false
     }
 
     // internal utilities
@@ -202,17 +204,20 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
     /**
      * Initialize the hashing mask value. We defer initialization until we
      * really need it.
+     * @param capacity 最大值为1<<30
      */
     final boolean initHashSeedAsNeeded(int capacity) {
+        //当hashmap初始化时，hashseed为0,0！=0值为false
         boolean currentAltHashing = hashSeed != 0;
         boolean useAltHashing = sun.misc.VM.isBooted() &&
-                (capacity >= Holder.ALTERNATIVE_HASHING_THRESHOLD);
-        boolean switching = currentAltHashing ^ useAltHashing;
+                (capacity >= Holder.ALTERNATIVE_HASHING_THRESHOLD);//Holder.ALTERNATIVE_HASHING_THRESHOLD值为int的最大值，true && false = false
+        boolean switching = currentAltHashing ^ useAltHashing; //false ^ false = false,异或运算，二进制位不同为1
         if (switching) {
             hashSeed = useAltHashing
                     ? sun.misc.Hashing.randomHashSeed(this)
                     : 0;
         }
+        //返回false
         return switching;
     }
 
@@ -224,17 +229,22 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * in lower bits. Note: Null keys always map to hash 0, thus index 0.
      */
     final int hash(Object k) {
-        int h = hashSeed;
+        int h = hashSeed;//hashseed并没有重新赋值，初始化时为0
         if (0 != h && k instanceof String) {
             return sun.misc.Hashing.stringHash32((String) k);
         }
 
-        h ^= k.hashCode();
+        //与0相异或，保留原值
+        h ^= k.hashCode();//第一步，将key的hash值与hashseed做异或运算
 
         // This function ensures that hashCodes that differ only by
         // constant multiples at each bit position have a bounded
         // number of collisions (approximately 8 at default load factor).
+        //第二次hash：将上一步所得hash值进行无符号右移20位，和hash值无符号右移12位进行异或运算。相当于，hash值取高12位和高20位进行异或运算
+        //最终结果：高12位置为0，中间8位保持原hash值高8位，后12位为：原hash值高12位（第1到12位）和去除高8位的中间12位（第9到20位）进行异或
         h ^= (h >>> 20) ^ (h >>> 12);
+        //第三次hash：右移7位（高19位为0），右移4位（高16位为0），进行异或，结果为高16位为0，第17-19位三位保持上一步结果的高三位，其余进行异或，
+        //所得结果在于第二部结果进行异或，结果：高12位仍然为0，第13-16位保持第二步的13-16位（即，原hash值的高4位），其余进行异或
         return h ^ (h >>> 7) ^ (h >>> 4);
     }
 
@@ -264,20 +274,9 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * Returns the value to which the specified key is mapped,
      * or {@code null} if this map contains no mapping for the key.
      *
-     * <p>More formally, if this map contains a mapping from a key
-     * {@code k} to a value {@code v} such that {@code (key==null ? k==null :
-     * key.equals(k))}, then this method returns {@code v}; otherwise
-     * it returns {@code null}.  (There can be at most one such mapping.)
-     *
-     * <p>A return value of {@code null} does not <i>necessarily</i>
-     * indicate that the map contains no mapping for the key; it's also
-     * possible that the map explicitly maps the key to {@code null}.
-     * The {@link #containsKey containsKey} operation may be used to
-     * distinguish these two cases.
-     *
-     * @see #put(Object, Object)
      */
     public V get(Object key) {
+        //如果key为null，则直接找table[0]
         if (key == null)
             return getForNullKey();
         Entry<K,V> entry = getEntry(key);
@@ -310,6 +309,7 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * @param   key   The key whose presence in this map is to be tested
      * @return <tt>true</tt> if this map contains a mapping for the specified
      * key.
+     * 判断是否包含key
      */
     public boolean containsKey(Object key) {
         return getEntry(key) != null;
@@ -330,6 +330,7 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
              e != null;
              e = e.next) {
             Object k;
+            //判断hash值，key是否相同
             if (e.hash == hash &&
                     ((k = e.key) == key || (key != null && key.equals(k))))
                 return e;
@@ -342,19 +343,15 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * If the map previously contained a mapping for the key, the old
      * value is replaced.
      *
-     * @param key key with which the specified value is to be associated
-     * @param value value to be associated with the specified key
-     * @return the previous value associated with <tt>key</tt>, or
-     *         <tt>null</tt> if there was no mapping for <tt>key</tt>.
-     *         (A <tt>null</tt> return can also indicate that the map
-     *         previously associated <tt>null</tt> with <tt>key</tt>.)
      */
     public V put(K key, V value) {
+        //如果table为空集合
         if (table == EMPTY_TABLE) {
+            //构造一个初始数组，threshold为阈值，构造方法中初始化
             inflateTable(threshold);
         }
         if (key == null)
-            return putForNullKey(value);
+            return putForNullKey(value);//如果原来就有key为null的节点，则返回更新前的值
         int hash = hash(key);
         int i = indexFor(hash, table.length);
         for (Entry<K,V> e = table[i]; e != null; e = e.next) {
@@ -374,8 +371,10 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
 
     /**
      * Offloaded version of put for null keys
+     * key为null的放在table[0]的位置
      */
     private V putForNullKey(V value) {
+        //便利table[0]的链表，将key为null的值改为value
         for (Entry<K,V> e = table[0]; e != null; e = e.next) {
             if (e.key == null) {
                 V oldValue = e.value;
@@ -384,8 +383,9 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
                 return oldValue;
             }
         }
-        modCount++;
-        addEntry(0, null, value, 0);
+        //table[0]没有key为null的，则新增一个entry节点
+        modCount++;//hashmap的结构改动（新增，删除，rehash等）时，modCount值才++
+        addEntry(0, null, value, 0);//hash值为0，key为null
         return null;
     }
 
@@ -403,6 +403,7 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
          * Look for preexisting entry for key.  This will never happen for
          * clone or deserialize.  It will only happen for construction if the
          * input Map is a sorted map whose ordering is inconsistent w/ equals.
+         * 可能传入的旧map是有序的key可重复的？但是hashmap不允许key重复，所以去重吗？ TODO
          */
         for (Entry<K,V> e = table[i]; e != null; e = e.next) {
             Object k;
@@ -438,15 +439,15 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
     void resize(int newCapacity) {
         Entry[] oldTable = table;
         int oldCapacity = oldTable.length;
-        if (oldCapacity == MAXIMUM_CAPACITY) {
+        if (oldCapacity == MAXIMUM_CAPACITY) {//如果目前hashmap已经达到了最大容量，则不进行扩容，但将阈值增加至int的最大值
             threshold = Integer.MAX_VALUE;
             return;
         }
 
-        Entry[] newTable = new Entry[newCapacity];
+        Entry[] newTable = new Entry[newCapacity];//新容量为旧容量的2倍，创建信的entry数组（table）
         transfer(newTable, initHashSeedAsNeeded(newCapacity));
-        table = newTable;
-        threshold = (int)Math.min(newCapacity * loadFactor, MAXIMUM_CAPACITY + 1);
+        table = newTable;//将新table赋值给成员变量
+        threshold = (int)Math.min(newCapacity * loadFactor, MAXIMUM_CAPACITY + 1);//重新计算阈值
     }
 
     /**
@@ -454,16 +455,19 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      */
     void transfer(Entry[] newTable, boolean rehash) {
         int newCapacity = newTable.length;
+        //直接遍历老的hashmap
         for (Entry<K,V> e : table) {
             while(null != e) {
                 Entry<K,V> next = e.next;
+                //如果需要rehash则将节点进行rehash
                 if (rehash) {
                     e.hash = null == e.key ? 0 : hash(e.key);
                 }
+                //hash值与newCapacity-1做位运算&，相当于取模运算，计算出节点的位置
                 int i = indexFor(e.hash, newCapacity);
-                e.next = newTable[i];
-                newTable[i] = e;
-                e = next;
+                e.next = newTable[i];//将E的next指针指向table[i]当前节点，例如是a,即，将e放置在a前面
+                newTable[i] = e;//再将e放在table[i]的位置上，即，新来的节点都会放置在当前table[i]的链表最前端
+                e = next;//遍历旧链表下一个节点
             }
         }
     }
@@ -746,12 +750,16 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * Subclass overrides this to alter the behavior of put method.
      */
     void addEntry(int hash, K key, V value, int bucketIndex) {
+        //map的size超过阈值，并且指定的桶已经被初始化，需要对map进行扩容
         if ((size >= threshold) && (null != table[bucketIndex])) {
+            //hashmap扩容为原来的2倍
             resize(2 * table.length);
+            //重新计算新增节点的hash值
             hash = (null != key) ? hash(key) : 0;
+            //重新计算该hash值所在桶的索引，取模运算
             bucketIndex = indexFor(hash, table.length);
         }
-
+        //创建新的节点
         createEntry(hash, key, value, bucketIndex);
     }
 
@@ -764,8 +772,11 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * clone, and readObject.
      */
     void createEntry(int hash, K key, V value, int bucketIndex) {
+        //将table[i]位置上的节点保存
         Entry<K,V> e = table[bucketIndex];
+        //创建新的节点，指向原table[i]位置上的节点，即每新增一个节点时，都会放到链表的最前边。免去遍历
         table[bucketIndex] = new Entry<>(hash, key, value, e);
+        //map的size++
         size++;
     }
 

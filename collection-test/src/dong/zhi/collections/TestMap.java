@@ -23,7 +23,7 @@ public class TestMap {
         //1、LinkedList是有序的
         //2、每次访问一个元素（get或put），被访问的元素都被提到最后面去了
         MyLinkedHashMap<String, String> linkedHashMap =
-                new MyLinkedHashMap<String, String>(16, 0.75f, true);
+                new MyLinkedHashMap<String, String>(4, 0.75f, true);
         linkedHashMap.put("111", "111");
         linkedHashMap.put("222", "222");
         linkedHashMap.put("333", "333");

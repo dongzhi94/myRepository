@@ -68,7 +68,8 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
     /**
      * 记录hashmap结构被修改的次数，结构修改指改变了K/V映射，如新增、删除一个元素，又或是改变了内部结构，如rehash。这个字段被用来当迭代器的fail-fast。什么意思？
      * fail-fast机制：我们造，hashmap是线程不安全的，因此如果在使用迭代器的过程中有其他线程修改了hashmap，那么将抛出ConcurrentModificationException，这就是所谓fail-fast策略。
-     *下次看到HashMap使用中抛出ConcurrentModificationException, 就知道有多线程并发使用了。怎么处理？ConcurrentHashMap。
+     * 迭代器中，根据该参数判定，是否有其他线程在遍历过程中对map进行了修改。
+     * 下次看到HashMap使用中抛出ConcurrentModificationException, 就知道有多线程并发使用了。怎么处理？ConcurrentHashMap。
      */
     transient int modCount;
 
@@ -120,6 +121,7 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * A randomizing value associated with this instance that is applied to
      * hash code of keys to make hash collisions harder to find. If 0 then
      * alternative hashing is disabled.
+     * 对key生成Hash码的时候会用到。
      */
     transient int hashSeed = 0;
 
@@ -227,6 +229,10 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * critical because MyHashMap uses power-of-two length hash tables, that
      * otherwise encounter collisions for hashCodes that do not differ
      * in lower bits. Note: Null keys always map to hash 0, thus index 0.
+     *
+     * hashMap的精华：
+     * 1、高位参与运算，防止低位不变，高位变化时产生的hash冲突
+     * 2、该hash算法，让二进制位中的1均匀分布。
      */
     final int hash(Object k) {
         int h = hashSeed;//hashseed并没有重新赋值，初始化时为0
@@ -374,7 +380,7 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
      * key为null的放在table[0]的位置
      */
     private V putForNullKey(V value) {
-        //便利table[0]的链表，将key为null的值改为value
+        //遍历table[0]的链表，将key为null的值改为value
         for (Entry<K,V> e = table[0]; e != null; e = e.next) {
             if (e.key == null) {
                 V oldValue = e.value;
@@ -444,7 +450,7 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
             return;
         }
 
-        Entry[] newTable = new Entry[newCapacity];//新容量为旧容量的2倍，创建信的entry数组（table）
+        Entry[] newTable = new Entry[newCapacity];//新容量为旧容量的2倍，创建新的entry数组（table）
         transfer(newTable, initHashSeedAsNeeded(newCapacity));
         table = newTable;//将新table赋值给成员变量
         threshold = (int)Math.min(newCapacity * loadFactor, MAXIMUM_CAPACITY + 1);//重新计算阈值

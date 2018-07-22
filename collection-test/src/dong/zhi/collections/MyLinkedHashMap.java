@@ -122,7 +122,7 @@ public class MyLinkedHashMap<K,V> extends MyHashMap<K,V> implements Map<K,V>{
         Entry<K,V> e = (Entry<K,V>)getEntry(key);
         if (e == null)
             return null;
-        //调用recordAccess，如果是按访问顺序，则将该节点从当前位置山区，添加到链表的尾部
+        //调用recordAccess，如果是按访问顺序，则将该节点从当前位置删除，添加到链表的尾部
         e.recordAccess(this);
         return e.value;
     }

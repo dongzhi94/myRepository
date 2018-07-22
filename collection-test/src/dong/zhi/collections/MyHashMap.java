@@ -54,7 +54,7 @@ public class MyHashMap<K,V> extends AbstractMap<K,V> implements Map<K,V> {
     transient int size;
 
     /**
-     * 阈值，当达到阈值时会触发一些事情。？
+     * 阈值，当达到阈值时表扩容
      */
     // If table == EMPTY_TABLE then this is the initial capacity at which the
     // table will be created when inflated.

@@ -8,7 +8,7 @@ public class TestMap {
 
     public static void main(String[] args){
         //HASHMAP
-        boolean useAltHashing = sun.misc.VM.isBooted();//VM在启动时将该值赋为true
+        /*boolean useAltHashing = sun.misc.VM.isBooted();//VM在启动时将该值赋为true
         System.out.println(useAltHashing);//true
 
         String altThreshold = java.security.AccessController.doPrivileged(
@@ -17,12 +17,12 @@ public class TestMap {
         System.out.println(altThreshold);//null
 
         MyHashMap map = new MyHashMap();
-        map.put("11",null);
+        map.put("11",null);*/
 
         //LinkedHashMap--accessOrder = true;
         //1、LinkedList是有序的
         //2、每次访问一个元素（get或put），被访问的元素都被提到最后面去了
-        /*MyLinkedHashMap<String, String> linkedHashMap =
+        MyLinkedHashMap<String, String> linkedHashMap =
                 new MyLinkedHashMap<String, String>(4, 0.75f, true);
         linkedHashMap.put("111", "111");
         linkedHashMap.put("222", "222");
@@ -33,7 +33,6 @@ public class TestMap {
         loopLinkedHashMap(linkedHashMap);//222,333,444,111
         linkedHashMap.put("222", "2222");
         loopLinkedHashMap(linkedHashMap);//333,444,111,222
-*/
 
     }
 

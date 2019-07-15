@@ -4,6 +4,15 @@ import java.util.Comparator;
 
 /**
  * 红黑树
+ * 特征：1、节点都有颜色。2、在插入和删除的过程中，要遵循保持这些颜色的不通跑咧规则：红-黑规则
+ * 红-黑规则：
+ * 1、每个节点不是红色就是黑色的。
+ * 2、根节点总是黑色的。
+ * 3、如果节点是红色的，则它的子节点必须是黑色的（反之不一定），（也就是从给每个叶子到根的所有路径上不能有两个连续的红色节点）
+ * 4、从根节点到叶节点或空子节点的每条路径，必须包含相同数目的黑色节点（即相同的黑色高度）。（从根节点到叶节点的路径上的黑色节点的数目成为黑色高度。）
+ * 注意：新插入的节点总是红色的，这是因为插入一个红色节点比插入一个黑色节点违背红-黑规则的可能性更小，
+ * 原因是插入黑色节点总会改变黑色高度（违背规则4），但是插入红色节点只有一半的机会会违背规则3（因为父节点是黑色的没事，父节点红色才违背规则3）。
+ * 另外，违背规则3比违背规则4更容易修正。
  * @author dongzhi
  */
 public class RBTree<T> {
@@ -103,8 +112,69 @@ public class RBTree<T> {
     }
 
     //TODO
-    private void insertFixUp(RBNode<T> node) {
 
+    /**
+     * 红黑树主要通过三种方式对平衡进行修正，1、改变节点颜色。2、左旋。3、右旋。
+     * 如果是第一次插入，由于原树为空，直接将根节点涂黑即可，如果插入节点的父节点是黑色的，那不会违背红-黑树规则，什么也不需要做，但遇到如下三种情况时，就需要变色和旋转：
+     * 1、插入节点的父节点和其叔叔节点（祖父节点的另一个子节点）均为红色
+     * 2、插入节点的父节点是红色的，叔叔节点是黑色的，且插入节点是其父节点的右子节点
+     * 3、插入节点的父节点是红色的，叔叔节点是黑色的，且插入节点是其父节点的左子节点
+     * @param node
+     */
+    private void insertFixUp(RBNode<T> node) {
+        //定义父节点和祖父节点
+        RBNode<T> parent,gparent;
+        //需要修正的条件是，父节点存在，且父节点为红色
+        while ((parent = parentOf(node)) != null && node.color == RED){
+            //父节点是红色，则祖父节点一定存在，且为黑色
+            gparent = parentOf(parent);
+            //若父节点是祖父节点的左子节点，else相反
+            if(parent == gparent.left){
+                //获得叔叔节点
+                RBNode<T> uncle = gparent.right;
+                //case 1: 叔叔节点也是红色
+                if(uncle != null && uncle.color == RED){
+                    //将父节点和叔叔节点涂黑
+                    setBlack(parent);
+                    setBlack(uncle);
+                    //祖父节点涂红
+                    setRed(gparent);
+                    //再将当前节点指向祖父节点
+                    node = gparent;
+                    //再从当前节点开始算法,继续while循环，重新判断
+                    continue;
+                }
+
+                //case2:叔叔节点是黑色，且当前节点是右子节点
+                if(node == parent.right){
+                    //将当前节点的父节点作为新的节点，以新的当前节点作为新的节点，做左旋操作。
+                    leftRotate(parent);
+                    //左旋后，当前节点变为父节点，原父节点变为左节点了，所以将node和parent调换下，为下面右旋做准备
+                    RBNode<T> tmp = parent;
+                    parent = node;
+                    node = tmp;
+                }
+
+                //case3:叔叔节点是黑色，且当前节点是左子节点
+                //将当前节点的父节点涂黑，祖父节点涂红，在祖父节点为支点做右旋操作，最后把根节点涂黑
+                setBlack(parent);
+                setRed(gparent);
+                rightRotate(gparent);
+
+            }
+
+        }
+    }
+    //TODO 右旋
+    private void rightRotate(RBNode<T> gparent) {
+    }
+
+    //TODO 左旋
+    private void leftRotate(RBNode<T> parent) {
+    }
+
+    private RBNode<T> parentOf(RBNode<T> node) {
+        return node == null ? null : node.parent;
     }
 
     public class RBNode<T> implements Comparable<T>{

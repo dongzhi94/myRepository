@@ -111,8 +111,6 @@ public class RBTree<T> {
         insertFixUp(node);
     }
 
-    //TODO
-
     /**
      * 红黑树主要通过三种方式对平衡进行修正，1、改变节点颜色。2、左旋。3、右旋。
      * 如果是第一次插入，由于原树为空，直接将根节点涂黑即可，如果插入节点的父节点是黑色的，那不会违背红-黑树规则，什么也不需要做，但遇到如下三种情况时，就需要变色和旋转：
@@ -161,18 +159,133 @@ public class RBTree<T> {
                 setRed(gparent);
                 rightRotate(gparent);
 
+            }else{
+                //若父节点是祖父节点的右子节点，与上面的情况完全相反，但本质相同
+                //获得叔叔节点
+                RBNode<T> uncle = gparent.left;
+                //case 1: 叔叔节点也是红色
+                if(uncle != null && uncle.color == RED){
+                    //将父节点和叔叔节点涂黑
+                    setBlack(parent);
+                    setBlack(uncle);
+                    //祖父节点涂红
+                    setRed(gparent);
+                    //再将当前节点指向祖父节点
+                    node = gparent;
+                    //再从当前节点开始算法,继续while循环，重新判断
+                    continue;
+                }
+
+                //case2:叔叔节点是黑色，且当前节点是左子节点
+                if(node == parent.left){
+                    //将当前节点的父节点作为新的节点，以新的当前节点作为新的节点，做右旋操作。
+                    rightRotate(parent);
+                    //右旋后，当前节点变为父节点，原父节点变为右节点了，所以将node和parent调换下，为下面左旋做准备
+                    RBNode<T> tmp = parent;
+                    parent = node;
+                    node = tmp;
+                }
+
+                //case3:叔叔节点是黑色，且当前节点是右子节点
+                //将当前节点的父节点涂黑，祖父节点涂红，在祖父节点为支点做左旋操作，最后把根节点涂黑
+                setBlack(parent);
+                setRed(gparent);
+                leftRotate(gparent);
             }
 
         }
+        //将根节点设置为黑色。当前节点为红色，且无父节点时跳出while循环，即当前节点为根节点且为红色时
+        setBlack(root);
     }
-    //TODO 右旋
-    private void rightRotate(RBNode<T> gparent) {
+    /**
+     * 左旋示意图：对节点y进行右旋
+     *        p                   p
+     *       /                   /
+     *      y                   x
+     *     / \                 / \
+     *    x  ry   ----->      lx  y
+     *   / \                     / \
+     * lx  rx                   rx ry
+     * 右旋做了三件事：
+     * 1. 将x的右子节点赋给y的左子节点,并将y赋给x右子节点的父节点(x右子节点非空时)
+     * 2. 将y的父节点p(非空时)赋给x的父节点，同时更新p的子节点为x(左或右)
+     * 3. 将x的右子节点设为y，将y的父节点设为x
+     */
+    private void rightRotate(RBNode<T> y) {
+        //1. 将x的右子节点赋给y的左子节点,并将y赋给x右子节点的父节点(x右子节点非空时):先挪rx
+        RBNode<T> x = y.left;
+        y.left = x.right;
+        if(x.right != null){
+            x.right.parent = y;
+        }
+
+        //2. 将y的父节点p(非空时)赋给x的父节点，同时更新p的子节点为x(左或右):确定x和p的关系
+        x.parent = y.parent;
+        if(y.parent == null){
+            //y是根节点
+            this.root = x;
+        }else{
+            if(y == y.parent.left){
+                //如果y是左节点，则将x也设置为左节点
+                y.parent.left = x;
+            }else{
+                //如果y是右节点，则将x也设置为右节点
+                y.parent.right = x;
+            }
+        }
+        //3. 将x的右子节点设为y，将y的父节点设为x
+        x.right = y;
+        y.parent = x;
+
     }
 
-    //TODO 左旋
-    private void leftRotate(RBNode<T> parent) {
+    /*************对红黑树节点x进行左旋操作 ******************/
+    /**
+     * 左旋示意图：对节点x进行左旋
+     *     p                       p
+     *    /                       /
+     *   x                       y
+     *  / \                     / \
+     * lx  y      ----->       x  ry
+     *    / \                 / \
+     *   ly ry               lx ly
+     * 左旋做了三件事：
+     * 1. 将y的左子节点赋给x的右子节点,并将x赋给y左子节点的父节点(y左子节点非空时)
+     * 2. 将x的父节点p(非空时)赋给y的父节点，同时更新p的子节点为y(左或右)
+     * 3. 将y的左子节点设为x，将x的父节点设为y
+     */
+    private void leftRotate(RBNode<T> x) {
+        //1. 将y的左子节点赋给x的右子节点,并将x赋给y左子节点的父节点(y左子节点非空时) : 先将ly挪过去
+        RBNode<T> y = x.right;
+        x.right = y.left;
+        if(y.left != null){
+            y.left.parent = x;
+        }
+        //2. 将x的父节点p(非空时)赋给y的父节点，同时更新p的子节点为y(左或右) : 将y与p的关系确定
+        y.parent = x.parent;
+        if(x.parent == null){
+            //若x的父节点为空，即x为根节点，则将y设置为根节点
+            this.root = y;
+        }else{
+            //若x是左子节点，则将y设为x父节点p的左子节点
+            if(x == x.parent.left){
+                x.parent.left = y;
+            }else{
+                x.parent.right = y;
+            }
+        }
+        //3. 将y的左子节点设为x，将x的父节点设为y
+        y.left = x;
+        x.parent = y;
+
+
     }
 
+    /**
+     * 获取父节点
+     * @param node
+     * @return
+     */
     private RBNode<T> parentOf(RBNode<T> node) {
         return node == null ? null : node.parent;
     }
